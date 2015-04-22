@@ -12,7 +12,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
-	"net/url"
 	"os"
 	"os/signal"
 	"os/user"
@@ -176,7 +175,7 @@ const TABLEEND = `
 const ITEM = `
 	<tr>
 		<td class = "icons"><div class="{{.Icon}}"></div></td>
-		<td><a href="{{.Path}}/" target="{{.Target}}">{{.Name}}</a></td>
+		<td><a href="{{.Path}}" target="{{.Target}}">{{.Name}}</a></td>
 		<td>{{.Size}}</td>
 		<td>{{.LastModified}}</td>
 	</tr>`
@@ -292,16 +291,6 @@ func (f *fileServerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func serveFile(w http.ResponseWriter, r *http.Request, fs http.FileSystem, name string, redirect bool) {
-	const indexPage = "/index.html"
-
-	// redirect .../index.html to .../
-	// can't use Redirect() because that would make the path absolute,
-	// which would be a problem running under StripPrefix
-	if strings.HasSuffix(r.URL.Path, indexPage) {
-		localRedirect(w, r, "./")
-		return
-	}
-
 	f, err := fs.Open(name)
 	if err != nil {
 		// TODO expose actual error?
@@ -334,27 +323,13 @@ func serveFile(w http.ResponseWriter, r *http.Request, fs http.FileSystem, name 
 		}
 	}
 
-	// use contents of index.html for directory, if present
-	if d.IsDir() {
-		index := strings.TrimSuffix(name, "/") + indexPage
-		ff, err := fs.Open(index)
-		if err == nil {
-			defer ff.Close()
-			dd, err := ff.Stat()
-			if err == nil {
-				name = index
-				d = dd
-				f = ff
-			}
-		}
-	}
-
 	// Still a directory? (we didn't find an index.html file)
 	if d.IsDir() {
-		if checkLastModified(w, r, d.ModTime()) {
-			return
-		}
-		//dirList(w, f)
+		/*
+			if checkLastModified(w, r, d.ModTime()) {
+				return
+			}
+		*/
 
 		htmlHeadTemplate.Execute(w, d.Name())
 		fmt.Fprintf(w, "<a class = \"homeButton\" href=\"/\" style = 'padding: 8.5px; margin-right: 10px;'><div class=\"home button\"></div></a><a class = \"backButton\" href=\"../\" style = 'padding: 8.5px; margin-right: 10px;'><div class=\"back button\"></div></a>")
@@ -372,7 +347,8 @@ func serveFile(w http.ResponseWriter, r *http.Request, fs http.FileSystem, name 
 					continue
 				}
 				if d.IsDir() {
-					tableItemTemplate.Execute(&folders, item{Icon: "directory icon", Name: name, Path: urlEscape(name), LastModified: d.ModTime().Format(DATEFORMAT), Size: "-", Target: "_self"})
+					path := urlEscape(name) + "/"
+					tableItemTemplate.Execute(&folders, item{Icon: "directory icon", Name: name, Path: path, LastModified: d.ModTime().Format(DATEFORMAT), Size: "-", Target: "_self"})
 				} else {
 					var image string
 					if fileType, found := fileTypes[strings.ToLower(filepath.Ext(d.Name()))]; found {
@@ -664,29 +640,6 @@ func checkLastModified(w http.ResponseWriter, r *http.Request, modtime time.Time
 	}
 	w.Header().Set("Last-Modified", modtime.UTC().Format(http.TimeFormat))
 	return false
-}
-
-func dirList(w http.ResponseWriter, f http.File) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, "<pre>\n")
-	for {
-		dirs, err := f.Readdir(100)
-		if err != nil || len(dirs) == 0 {
-			break
-		}
-		for _, d := range dirs {
-			name := d.Name()
-			if d.IsDir() {
-				name += "/"
-			}
-			// name may contain '?' or '#', which must be escaped to remain
-			// part of the URL path, and not indicate the start of a query
-			// string or fragment.
-			url := url.URL{Path: name}
-			fmt.Fprintf(w, "<a href=\"%s\">%s</a>\n", url.String(), htmlReplacer.Replace(name))
-		}
-	}
-	fmt.Fprintf(w, "</pre>\n")
 }
 
 func sumRangesSize(ranges []httpRange) (size int64) {
