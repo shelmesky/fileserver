@@ -205,8 +205,8 @@ const NOTFOUND = `
 `
 
 func init() {
-	flag.StringVar(&dir, "d", getHomeDir(), "The root directory for the file server.")
-	flag.StringVar(&dir, "directory", getHomeDir(), "The root directory for the file server.")
+	flag.StringVar(&dir, "d", "/sdcard/", "The root directory for the file server.")
+	flag.StringVar(&dir, "directory", "/sdcard/", "The root directory for the file server.")
 	flag.StringVar(&port, "p", "4545", "The port on which the file server should run.")
 	flag.StringVar(&port, "port", "4545", "The port on which the file server should run.")
 	flag.BoolVar(&version, "v", false, "Prints the version number.")
