@@ -689,7 +689,7 @@ func startServer() {
 	fmt.Printf("Starting %s with root %s on port %s.\nPress ctrl + c to exit.\n", strings.Title(NAME), dir, port)
 	handler := HTTPLog(&fileServerHandler{http.Dir(dir)})
 	http.Handle("/", handler)
-	conErr := http.ListenAndServe(":"+port, nil)
+	conErr := http.ListenAndServe("0.0.0.0:"+port, nil)
 	if conErr != nil {
 		fmt.Println(conErr)
 		os.Exit(1)
